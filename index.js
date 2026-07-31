@@ -19,7 +19,7 @@ async function bootstrap() {
     });
 
     await startWhatsAppBot();
-    console.log('[WHATSAPP] Bot iniciado correctamente');
+    console.log('[WHATSAPP] Bot iniciado correctamente pene');
   } catch (error) {
     console.error('[APP] Error al iniciar:', error);
     process.exit(1);
