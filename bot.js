@@ -197,13 +197,13 @@ function getTypingDelay(text) {
 
 async function simulateTyping(chat, text) {
   try {
-    if (!chat) return;
+    if (!chat || typeof chat.sendStateTyping !== 'function') return;
 
     await chat.sendStateTyping();
     await sleep(getTypingDelay(text));
     await chat.clearState();
   } catch (error) {
-    console.error('[WHATSAPP] Error simulando escritura:', error.message);
+    console.error('[WHATSAPP] Error simulando escritura:', error?.message || error);
   }
 }
 
@@ -237,7 +237,7 @@ async function sendMediaMessage(client, chatId, mediaPath, options = {}, extraOp
     await client.sendMessage(chatId, media, { ...options, ...extraOptions });
     return true;
   } catch (error) {
-    console.error('[WHATSAPP] Error enviando media, probablemente sesión caída:', error.message);
+    console.error('[WHATSAPP] Error enviando media:', error?.message || error);
     return false;
   }
 }
@@ -247,11 +247,14 @@ async function sendNormalizedResponse(client, originalMsg, response) {
   const chatId = getMessageChatId(originalMsg);
   const quotedMessageId = getQuotedMessageId(originalMsg);
 
+  if (!chatId) return;
+
   let chat = null;
   try {
     chat = await originalMsg.getChat();
   } catch (error) {
-    console.error('[WHATSAPP] Error obteniendo chat:', error.message);
+    // Se captura pero no interrumpe la respuesta
+    console.warn('[WHATSAPP] No se pudo obtener el objeto chat completo, enviando por chatId');
   }
 
   for (const msg of messages) {
@@ -446,8 +449,8 @@ async function startWhatsAppBot() {
       scheduleReconnect();
     });
 
+    // SOLUCIÓN: Usar solo 'message' para evitar procesar los propios mensajes enviados y bucles
     client.on('message', onNewMessage);
-    client.on('message_create', onNewMessage);
 
     await client.initialize();
 
