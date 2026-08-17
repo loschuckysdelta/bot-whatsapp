@@ -6,13 +6,13 @@ const fs = require('fs');
 const { banUser, unbanUser, isBanned } = require('./services/banned');
 const { buscarPagoPorOperacion, buscarCodigoRegistroPorEmail, crearTokenAutocompletado } = require('./services/querys');
 const {
-  QR_MESSAGE,
-  SERVICE_MESSAGE,
-  getCommandResponse,
-  getRegisterCodeMessage,
-  getPaymentInfoMessage,
-  getTokenMessage,
-  normalizeText,
+  QR_MESSAGE,
+  SERVICE_MESSAGE,
+  getCommandResponse,
+  getRegisterCodeMessage,
+  getPaymentInfoMessage,
+  getTokenMessage,
+  normalizeText,
 } = require('./utils/constants');
 
 const resourcesPath = path.join(process.cwd(), 'resources');
@@ -26,338 +26,335 @@ let clientInstance = null;
 let clientInitializing = null;
 
 function getMessageChatId(msg) {
-  if (!msg) return '';
-  return msg.fromMe ? msg.to || '' : msg.from || '';
+  if (!msg) return '';
+  return msg.fromMe ? msg.to || '' : msg.from || '';
 }
 
 function getQuotedMessageId(msg) {
-  const id = msg?.id;
-  if (!id) return undefined;
-  return id._serialized || id['$1'] || `${id.fromMe}_${id.remote}_${id.id}`;
+  const id = msg?.id;
+  if (!id) return undefined;
+  return id._serialized || id['$1'] || `${id.fromMe}_${id.remote}_${id.id}`;
 }
 
 function isSlashCommand(text) {
-  return /^\/\S+(?:\s+\S.*)?$|^\/$/.test(String(text || '').trim());
+  return /^\/\S+(?:\s+\S.*)?$|^\/$/.test(String(text || '').trim());
 }
 
 function shouldProcessMessage(msg) {
-  const chatId = getMessageChatId(msg);
-  if (!chatId) return false;
-  if (chatId.includes('@g.us')) return false;
-  if (chatId.includes('@newsletter')) return false;
-  if (chatId.includes('@broadcast')) return false;
+  const chatId = getMessageChatId(msg);
+  if (!chatId) return false;
+  if (chatId.includes('@g.us')) return false;
+  if (chatId.includes('@newsletter')) return false;
+  if (chatId.includes('@broadcast')) return false;
 
-  if (msg.fromMe) {
-    return isSlashCommand(msg.body);
-  }
+  if (msg.fromMe) {
+    return isSlashCommand(msg.body);
+  }
 
-  return true;
+  return true;
 }
 
 function shouldBlockDuplicate(senderId, normalizedText) {
-  if (!senderId || !normalizedText) return false;
+  if (!senderId || !normalizedText) return false;
 
-  const now = Date.now();
-  const last = duplicateMessages.get(senderId);
+  const now = Date.now();
+  const last = duplicateMessages.get(senderId);
 
-  if (last && last.text === normalizedText && now - last.at < DUPLICATE_WINDOW_MS) {
-    return true;
-  }
+  if (last && last.text === normalizedText && now - last.at < DUPLICATE_WINDOW_MS) {
+    return true;
+  }
 
-  duplicateMessages.set(senderId, {
-    text: normalizedText,
-    at: now,
-  });
+  duplicateMessages.set(senderId, {
+    text: normalizedText,
+    at: now,
+  });
 
-  return false;
+  return false;
 }
 
 function cleanupDuplicateMessages() {
-  const now = Date.now();
+  const now = Date.now();
 
-  for (const [senderId, value] of duplicateMessages.entries()) {
-    if (!value || now - value.at > DUPLICATE_WINDOW_MS * 3) {
-      duplicateMessages.delete(senderId);
-    }
-  }
+  for (const [senderId, value] of duplicateMessages.entries()) {
+    if (!value || now - value.at > DUPLICATE_WINDOW_MS * 3) {
+      duplicateMessages.delete(senderId);
+    }
+  }
 }
 
 function normalizeResponse(response) {
-  if (!response) return [];
+  if (!response) return [];
 
-  if (typeof response === 'string') {
-    return [{ text: response, reply: false }];
-  }
+  if (typeof response === 'string') {
+    return [{ text: response, reply: false }];
+  }
 
-  if (Array.isArray(response)) {
-    return response.map((item) => ({
-      ...item,
-      reply: item?.reply === true,
-    }));
-  }
+  if (Array.isArray(response)) {
+    return response.map((item) => ({
+      ...item,
+      reply: item?.reply === true,
+    }));
+  }
 
-  return [
-    {
-      ...response,
-      reply: response?.reply === true,
-    },
-  ];
+  return [
+    {
+      ...response,
+      reply: response?.reply === true,
+    },
+  ];
 }
 
 async function getSpecialQueryResponse(text) {
-  const paymentMatch = text.match(PAYMENT_MESSAGE_REGEX);
+  const paymentMatch = text.match(PAYMENT_MESSAGE_REGEX);
 
-  if (paymentMatch) {
-    const cip = paymentMatch[1];
-    const resp = await buscarPagoPorOperacion(cip);
+  if (paymentMatch) {
+    const cip = paymentMatch[1];
+    const resp = await buscarPagoPorOperacion(cip);
 
-    if (!resp.ok) {
-      return {
-        text: resp.message,
-      };
-    }
+    if (!resp.ok) {
+      return {
+        text: resp.message,
+      };
+    }
 
-    const pago = resp.data;
-    const email = pago.email || null;
-    const precio = pago.amount ?? 50;
+    const pago = resp.data;
+    const email = pago.email || null;
+    const precio = pago.amount ?? 50;
 
-    const nombre = email ? String(email).split('@')[0] : '-';
-    const monto = Number(precio).toFixed(2);
+    const nombre = email ? String(email).split('@')[0] : '-';
+    const monto = Number(precio).toFixed(2);
 
-    return [
-      {
-        image: 'qr.png',
-        text: getPaymentInfoMessage(nombre, monto),
-      },
-      {
-        gif: 'videos/escanear_qr.mp4',
-        text: QR_MESSAGE(monto),
-      },
-    ];
-  }
+    return [
+      {
+        image: 'qr.png',
+        text: getPaymentInfoMessage(nombre, monto),
+      },
+      {
+        gif: 'videos/escanear_qr.mp4',
+        text: QR_MESSAGE(monto),
+      },
+    ];
+  }
 
-  const registerMatch =
-    String(text || '').match(REGISTER_MESSAGE_REGEX) ||
-    normalizeText(text).match(REGISTER_MESSAGE_REGEX);
+  const registerMatch =
+    String(text || '').match(REGISTER_MESSAGE_REGEX) ||
+    normalizeText(text).match(REGISTER_MESSAGE_REGEX);
 
-  if (registerMatch) {
-    const email = registerMatch[1]
-      .trim()
-      .replace(/[.,;:!?]+$/, '')
-      .toLowerCase();
-    const resp = await buscarCodigoRegistroPorEmail(email);
+  if (registerMatch) {
+    const email = registerMatch[1]
+      .trim()
+      .replace(/[.,;:!?]+$/, '')
+      .toLowerCase();
+    const resp = await buscarCodigoRegistroPorEmail(email);
 
-    if (!resp.ok) {
-      return {
-        text: resp.message,
-        reply: true,
-      };
-    }
+    if (!resp.ok) {
+      return {
+        text: resp.message,
+        reply: true,
+      };
+    }
 
-    return {
-      text: getRegisterCodeMessage(resp.data.code),
-      reply: true,
-    };
-  }
+    return {
+      text: getRegisterCodeMessage(resp.data.code),
+      reply: true,
+    };
+  }
 
-  return null;
+  return null;
 }
 
 async function getResponseConfig(text, normalizedText) {
-  const specialResponse = await getSpecialQueryResponse(text);
-  if (specialResponse) {
-    return specialResponse;
-  }
+  const specialResponse = await getSpecialQueryResponse(text);
+  if (specialResponse) {
+    return specialResponse;
+  }
 
-  const serviceRequestResponse = SERVICE_MESSAGE(text, normalizedText);
-  if (serviceRequestResponse) {
-    return serviceRequestResponse;
-  }
+  const serviceRequestResponse = SERVICE_MESSAGE(text, normalizedText);
+  if (serviceRequestResponse) {
+    return serviceRequestResponse;
+  }
 
-  const directResponse = getCommandResponse(normalizedText);
-  if (directResponse) {
-    return directResponse;
-  }
+  const directResponse = getCommandResponse(normalizedText);
+  if (directResponse) {
+    return directResponse;
+  }
 
-  return null;
+  return null;
 }
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getTypingDelay(text) {
-  const length = String(text || '').length;
-  const base = 300;
-  const perChar = 8;
-  const jitter = Math.floor(Math.random() * 400);
+  const length = String(text || '').length;
+  const base = 300;
+  const perChar = 8;
+  const jitter = Math.floor(Math.random() * 400);
 
-  return Math.min(base + length * perChar + jitter, 1500);
+  return Math.min(base + length * perChar + jitter, 1500);
 }
 
 async function simulateTyping(chat, text) {
-  try {
-    if (!chat || typeof chat.sendStateTyping !== 'function') return;
+  try {
+    if (!chat) return;
 
-    await chat.sendStateTyping();
-    await sleep(getTypingDelay(text));
-    await chat.clearState();
-  } catch (error) {
-    console.error('[WHATSAPP] Error simulando escritura:', error?.message || error);
-  }
+    await chat.sendStateTyping();
+    await sleep(getTypingDelay(text));
+    await chat.clearState();
+  } catch (error) {
+    console.error('[WHATSAPP] Error simulando escritura:', error.message);
+  }
 }
 
 function resolveResourcePath(filePath) {
-  return path.isAbsolute(filePath) ? filePath : path.join(resourcesPath, filePath);
+  return path.isAbsolute(filePath) ? filePath : path.join(resourcesPath, filePath);
 }
 
 const mediaCache = new Map();
 
 function getCachedMedia(filePath) {
-  if (mediaCache.has(filePath)) {
-    return mediaCache.get(filePath);
-  }
+  if (mediaCache.has(filePath)) {
+    return mediaCache.get(filePath);
+  }
 
-  const media = MessageMedia.fromFilePath(filePath);
-  mediaCache.set(filePath, media);
-  return media;
+  const media = MessageMedia.fromFilePath(filePath);
+  mediaCache.set(filePath, media);
+  return media;
 }
 
 async function sendMediaMessage(client, chatId, mediaPath, options = {}, extraOptions = {}) {
-  if (client !== clientInstance) return false;
+  if (client !== clientInstance) return false;
 
-  const filePath = resolveResourcePath(mediaPath);
+  const filePath = resolveResourcePath(mediaPath);
 
-  if (!fs.existsSync(filePath)) {
-    return false;
-  }
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
 
-  try {
-    const media = getCachedMedia(filePath);
-    await client.sendMessage(chatId, media, { ...options, ...extraOptions });
-    return true;
-  } catch (error) {
-    console.error('[WHATSAPP] Error enviando media:', error?.message || error);
-    return false;
-  }
+  try {
+    const media = getCachedMedia(filePath);
+    await client.sendMessage(chatId, media, { ...options, ...extraOptions });
+    return true;
+  } catch (error) {
+    console.error('[WHATSAPP] Error enviando media, probablemente sesión caída:', error.message);
+    return false;
+  }
 }
 
 async function sendNormalizedResponse(client, originalMsg, response) {
-  const messages = normalizeResponse(response);
-  const chatId = getMessageChatId(originalMsg);
-  const quotedMessageId = getQuotedMessageId(originalMsg);
+  const messages = normalizeResponse(response);
+  const chatId = getMessageChatId(originalMsg);
+  const quotedMessageId = getQuotedMessageId(originalMsg);
 
-  if (!chatId) return;
+  let chat = null;
+  try {
+    chat = await originalMsg.getChat();
+  } catch (error) {
+    console.error('[WHATSAPP] Error obteniendo chat:', error.message);
+  }
 
-  let chat = null;
-  try {
-    chat = await originalMsg.getChat();
-  } catch (error) {
-    // Se captura pero no interrumpe la respuesta
-    console.warn('[WHATSAPP] No se pudo obtener el objeto chat completo, enviando por chatId');
-  }
+  for (const msg of messages) {
+    const text = typeof msg.text === 'string' ? msg.text.trim() : '';
+    const reply = msg.reply === true;
 
-  for (const msg of messages) {
-    const text = typeof msg.text === 'string' ? msg.text.trim() : '';
-    const reply = msg.reply === true;
+    const options = {
+      caption: text || undefined,
+      quotedMessageId: reply ? quotedMessageId : undefined,
+    };
 
-    const options = {
-      caption: text || undefined,
-      quotedMessageId: reply ? quotedMessageId : undefined,
-    };
+    if (text && chat) {
+      await simulateTyping(chat, text);
+    }
 
-    if (text && chat) {
-      await simulateTyping(chat, text);
-    }
+    let mediaSent = false;
 
-    let mediaSent = false;
+    const mediaList = [
+      { value: msg.gif, extra: { sendVideoAsGif: true } },
+      { value: msg.image, extra: undefined },
+      { value: msg.video, extra: undefined },
+      { value: msg.file, extra: { sendMediaAsDocument: true } },
+    ];
 
-    const mediaList = [
-      { value: msg.gif, extra: { sendVideoAsGif: true } },
-      { value: msg.image, extra: undefined },
-      { value: msg.video, extra: undefined },
-      { value: msg.file, extra: { sendMediaAsDocument: true } },
-    ];
+    for (const media of mediaList) {
+      const value = typeof media.value === 'string' ? media.value.trim() : '';
 
-    for (const media of mediaList) {
-      const value = typeof media.value === 'string' ? media.value.trim() : '';
+      if (value) {
+        const sent = await sendMediaMessage(client, chatId, value, options, media.extra);
 
-      if (value) {
-        const sent = await sendMediaMessage(client, chatId, value, options, media.extra);
+        if (sent) {
+          mediaSent = true;
+          break;
+        }
+      }
+    }
 
-        if (sent) {
-          mediaSent = true;
-          break;
-        }
-      }
-    }
-
-    if (!mediaSent && text) {
-      await client.sendMessage(chatId, text, { quotedMessageId: options.quotedMessageId });
-    }
-  }
+    if (!mediaSent && text) {
+      await client.sendMessage(chatId, text, { quotedMessageId: options.quotedMessageId });
+    }
+  }
 }
 
 async function onNewMessage(msg) {
-  try {
-    if (!clientInstance) return;
-    if (!shouldProcessMessage(msg)) return;
-    if (!msg.body) return;
+  try {
+    if (!clientInstance) return;
+    if (!shouldProcessMessage(msg)) return;
+    if (!msg.body) return;
 
-    cleanupDuplicateMessages();
+    cleanupDuplicateMessages();
 
-    const senderId = getMessageChatId(msg);
-    if (!senderId) return;
+    const senderId = getMessageChatId(msg);
+    if (!senderId) return;
 
-    const normalizedText = normalizeText(msg.body);
+    const normalizedText = normalizeText(msg.body);
 
-    // ── Comandos admin ──
-    if (msg.fromMe) {
-      const myId = clientInstance.info?.wid?._serialized;
+    // ── Comandos admin ──
+    if (msg.fromMe) {
+      const myId = clientInstance.info?.wid?._serialized;
 
-      if (normalizedText === '/off') {
-        if (senderId === myId) return;
-        banUser(senderId);
-        return;
-      }
-      if (normalizedText === '/on') {
-        if (senderId === myId) return;
-        unbanUser(senderId);
-        return;
-      }
+      if (normalizedText === '/off') {
+        if (senderId === myId) return;
+        banUser(senderId);
+        return;
+      }
+      if (normalizedText === '/on') {
+        if (senderId === myId) return;
+        unbanUser(senderId);
+        return;
+      }
 
-      const tokenMatch = normalizedText.match(TOKEN_COMMAND_REGEX);
-      if (tokenMatch) {
-        const days = tokenMatch[1] ? parseInt(tokenMatch[1], 10) : 7;
-        const resp = await crearTokenAutocompletado(days);
+      const tokenMatch = normalizedText.match(TOKEN_COMMAND_REGEX);
+      if (tokenMatch) {
+        const days = tokenMatch[1] ? parseInt(tokenMatch[1], 10) : 7;
+        const resp = await crearTokenAutocompletado(days);
 
-        if (!resp.ok) {
-          await clientInstance.sendMessage(senderId, resp.message);
-          return;
-        }
+        if (!resp.ok) {
+          await clientInstance.sendMessage(senderId, resp.message);
+          return;
+        }
 
-        await sendMediaMessage(clientInstance, senderId, 'auto.png', {
-          caption: getTokenMessage(days),
-        });
+        await sendMediaMessage(clientInstance, senderId, 'auto.png', {
+          caption: getTokenMessage(days),
+        });
 
-        await clientInstance.sendMessage(senderId, resp.data.token);
-        return;
-      }
-    }
+        await clientInstance.sendMessage(senderId, resp.data.token);
+        return;
+      }
+    }
 
-    // ── Bloquear baneados ──
-    if (!msg.fromMe && isBanned(senderId)) return;
+    // ── Bloquear baneados ──
+    if (!msg.fromMe && isBanned(senderId)) return;
 
-    // ── Flujo normal ──
-    if (shouldBlockDuplicate(senderId, normalizedText)) return;
+    // ── Flujo normal ──
+    if (shouldBlockDuplicate(senderId, normalizedText)) return;
 
-    const response = await getResponseConfig(msg.body, normalizedText);
-    if (!response) return;
+    const response = await getResponseConfig(msg.body, normalizedText);
+    if (!response) return;
 
-    await sendNormalizedResponse(clientInstance, msg, response);
-  } catch (error) {
-    console.error('[WHATSAPP] Error en handler:', error);
-  }
+    await sendNormalizedResponse(clientInstance, msg, response);
+  } catch (error) {
+    console.error('[WHATSAPP] Error en handler:', error);
+  }
 }
 
 // ── Constantes de reconexión ──
@@ -366,129 +363,129 @@ const RETRY_DELAY_MS = 8000;
 let retryCount = 0;
 
 function createWhatsAppClient() {
-  const sessionPath = '.wwebjs_auth';
-  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const sessionPath = '.wwebjs_auth';
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
-  if (!fs.existsSync(sessionPath)) {
-    fs.mkdirSync(sessionPath, { recursive: true });
-  }
+  if (!fs.existsSync(sessionPath)) {
+    fs.mkdirSync(sessionPath, { recursive: true });
+  }
 
-  return new Client({
-    authStrategy: new LocalAuth({
-      clientId: 'main',
-      dataPath: sessionPath,
-    }),
-    puppeteer: {
-      headless: true,
-      executablePath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    },
-    authTimeoutMs: 120000,
-    qrMaxRetries: 10,
-  });
+  return new Client({
+    authStrategy: new LocalAuth({
+      clientId: 'main',
+      dataPath: sessionPath,
+    }),
+    puppeteer: {
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    },
+    authTimeoutMs: 120000,
+    qrMaxRetries: 10,
+  });
 }
 
 async function startWhatsAppBot() {
-  if (clientInstance) return clientInstance;
-  if (clientInitializing) return clientInitializing;
+  if (clientInstance) return clientInstance;
+  if (clientInitializing) return clientInitializing;
 
-  clientInitializing = (async () => {
-    const client = createWhatsAppClient();
+  clientInitializing = (async () => {
+    const client = createWhatsAppClient();
 
-    client.on('qr', (qr) => {
-      console.log('[WHATSAPP] Escanea este QR:');
-      qrcode.generate(qr, { small: true });
-    });
+    client.on('qr', (qr) => {
+      console.log('[WHATSAPP] Escanea este QR:');
+      qrcode.generate(qr, { small: true });
+    });
 
-    client.on('change_state', (state) => {
-      console.log('[WHATSAPP] change_state:', state);
-    });
+    client.on('change_state', (state) => {
+      console.log('[WHATSAPP] change_state:', state);
+    });
 
-    client.on('authenticated', () => {
-      retryCount = 0;
-      console.log('[WHATSAPP] Sesión autenticada');
-    });
+    client.on('authenticated', () => {
+      retryCount = 0;
+      console.log('[WHATSAPP] Sesión autenticada');
+    });
 
-    client.on('ready', () => {
-      retryCount = 0;
-      const wid = client.info?.wid?._serialized || 'sin_wid';
-      console.log(`[WHATSAPP] Conectado como: ${wid}`);
-    });
+    client.on('ready', () => {
+      retryCount = 0;
+      const wid = client.info?.wid?._serialized || 'sin_wid';
+      console.log(`[WHATSAPP] Conectado como: ${wid}`);
+    });
 
-    client.on('auth_failure', async (msg) => {
-      console.error('[WHATSAPP] Falló la autenticación:', msg);
+    client.on('auth_failure', async (msg) => {
+      console.error('[WHATSAPP] Falló la autenticación:', msg);
 
-      try {
-        await client.destroy();
-      } catch (_) {}
+      try {
+        await client.destroy();
+      } catch (_) {}
 
-      const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
-      if (fs.existsSync(sessionPath)) {
-        fs.rmSync(sessionPath, { recursive: true, force: true });
-        console.warn('[WHATSAPP] Sesión eliminada, reiniciando...');
-      }
+      const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.warn('[WHATSAPP] Sesión eliminada, reiniciando...');
+      }
 
-      scheduleReconnect();
-    });
+      scheduleReconnect();
+    });
 
-    client.on('disconnected', async (reason) => {
-      console.warn('[WHATSAPP] Cliente desconectado:', reason);
-      clientInstance = null;
-      clientInitializing = null;
+    client.on('disconnected', async (reason) => {
+      console.warn('[WHATSAPP] Cliente desconectado:', reason);
+      clientInstance = null;
+      clientInitializing = null;
 
-      try {
-        await client.destroy();
-      } catch (_) {}
+      try {
+        await client.destroy();
+      } catch (_) {}
 
-      if (reason === 'CONFLICT' || reason === 'UNLAUNCHED') {
-        console.error('[WHATSAPP] Conflicto de sesión detectado, saliendo...');
-        process.exit(1);
-        return;
-      }
+      if (reason === 'CONFLICT' || reason === 'UNLAUNCHED') {
+        console.error('[WHATSAPP] Conflicto de sesión detectado, saliendo...');
+        process.exit(1);
+        return;
+      }
 
-      scheduleReconnect();
-    });
+      scheduleReconnect();
+    });
 
-    // SOLUCIÓN: Usar solo 'message' para evitar procesar los propios mensajes enviados y bucles
-    client.on('message', onNewMessage);
+    client.on('message', onNewMessage);
+    client.on('message_create', onNewMessage);
 
-    await client.initialize();
+    await client.initialize();
 
-    clientInstance = client;
-    clientInitializing = null;
+    clientInstance = client;
+    clientInitializing = null;
 
-    return clientInstance;
-  })();
+    return clientInstance;
+  })();
 
-  try {
-    return await clientInitializing;
-  } catch (error) {
-    clientInitializing = null;
-    scheduleReconnect();
-    throw error;
-  }
+  try {
+    return await clientInitializing;
+  } catch (error) {
+    clientInitializing = null;
+    scheduleReconnect();
+    throw error;
+  }
 }
 
 function scheduleReconnect() {
-  if (retryCount >= MAX_RETRIES) {
-    console.error(`[WHATSAPP] Máximo de reintentos (${MAX_RETRIES}) alcanzado. Saliendo.`);
-    process.exit(1);
-    return;
-  }
+  if (retryCount >= MAX_RETRIES) {
+    console.error(`[WHATSAPP] Máximo de reintentos (${MAX_RETRIES}) alcanzado. Saliendo.`);
+    process.exit(1);
+    return;
+  }
 
-  retryCount++;
-  const delay = RETRY_DELAY_MS * retryCount;
-  console.log(`[WHATSAPP] Reconectando en ${delay / 1000}s... (intento ${retryCount}/${MAX_RETRIES})`);
+  retryCount++;
+  const delay = RETRY_DELAY_MS * retryCount;
+  console.log(`[WHATSAPP] Reconectando en ${delay / 1000}s... (intento ${retryCount}/${MAX_RETRIES})`);
 
-  setTimeout(async () => {
-    try {
-      await startWhatsAppBot();
-    } catch (error) {
-      console.error('[WHATSAPP] Error al reconectar:', error.message);
-    }
-  }, delay);
+  setTimeout(async () => {
+    try {
+      await startWhatsAppBot();
+    } catch (error) {
+      console.error('[WHATSAPP] Error al reconectar:', error.message);
+    }
+  }, delay);
 }
 
 module.exports = {
-  startWhatsAppBot,
+  startWhatsAppBot,
 };
