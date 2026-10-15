@@ -1,11 +1,8 @@
-const { TITLE_PRODUCT, PRICE_PRODUCT, FILE_APK, MAIN_MENU_MESSAGE, TUTORIALES_MESSAGE } = require('./data');
+const { TITLE_PRODUCT, PRICE_PRODUCT, FILE_APK } = require('./data');
 const { MSG_HELP_1, MSG_HELP_2, MSG_HELP_3 } = require('./data');
 const YEAR = new Date().getFullYear();
 
 const COMMAND_TUTORIALS = {
-  '/tutorial': {
-    text: TUTORIALES_MESSAGE,
-  },
   '/escanear': {
     video: 'videos/escanear.mp4',
     text: [
@@ -60,9 +57,6 @@ const COMMAND_RESPONSES = {
     image: 'yape.png',
     text: YAPE_MESSAGE(),
   },
-  '/menu': {
-    text: MAIN_MENU_MESSAGE,
-  },
   '/pagar': () => [
     {
       image: 'qr.png',
@@ -79,57 +73,28 @@ const COMMAND_RESPONSES = {
   '/apk': [
     {
       text: [
-        '📦 Aquí tienes la aplicación.',
+        `📲 *DESCARGA DE APK - ANDROID ${YEAR}*`,
         '',
-        'Instálala en tu dispositivo 📲',
-        'Luego crea tu cuenta ✍️ dentro de la app.',
+        '⚠️ *Si sale la advertencia Google Play Protect:*',
+        '1️⃣ *"MÁS DETALLES ▼"*.',
+        '2️⃣ *"INSTALAR DE TODAS FORMAS"*.',
         '',
-        'Cuando termines, envíame el correo con el que te registraste para activar tu licencia ✅',
       ].join('\n'),
     },
     {
       file: FILE_APK,
       text: null,
     },
-  ],
-  '/app': [
     {
-      text: [
-        '📦 Aquí tienes la aplicación.',
-        '',
-        'Instálala en tu dispositivo 📲 ',
-        '',
-        '✅ Si es tu primera vez, click *"Crear una cuenta"*.',
-        '✅ Si ya eres cliente, click *"Ya tengo una Cuenta Yape"* e ingresa con el mismo correo con el que se activó tu licencia.',
-      ].join('\n'),
-    },
-    {
-      file: FILE_APK,
-      text: null,
-    },
-  ],
-  '/android': () => [
-    {
-      text: [
-        '🤖 *Cómo instalar en Android*',
-        '',
-        '1️⃣ Abre el link desde *Chrome* o *Brave*.',
-        '2️⃣ Toca los *3 puntos* (⋮) en la esquina superior derecha.',
-        '3️⃣ Selecciona *"Agregar a pantalla de inicio"*',
-        '4️⃣ Confirma tocando *"Instalar"*.',
-        '',
-        '✅ Listo, ya tienes el ícono en tu celular.',
-        '',
-        '👇 Aquí tienes un tutorial:',
-      ].join('\n'),
-    },
-    {
-      gif: 'videos/android.mp4',
+      text: 'Antes de instalar, si tienes otras versiones borralas e instale el nuevo.',
     },
   ],
   '/iphone': () => [
     {
       text: [
+        '*LINK OFICIAL* 👇👇👇',
+        'https://ypfk-xpress.vercel.app/',
+        '',
         '🍏 *Cómo instalar en iPhone*',
         '',
         '1️⃣ Abre el link desde *Safari*',
@@ -245,7 +210,7 @@ function getPaymentInfoMessage(nombre, monto) {
 }
 
 function getPaymentYapeMessage() {
-  return ['💳 Métodos de pago: *Yape/Plin*', `👤 Titular: *juan alex*`].join('\n');
+  return ['💳 Métodos de pago: *Yape/Plin*', `👤 Titular: *JUAN ALEX*`].join('\n');
 }
 
 function getRegisterCodeMessage(code) {
@@ -273,19 +238,7 @@ function SERVICE_MESSAGE(text, normalizedText) {
   const mensajeOriginal = String(text || '').trim();
 
   const msg = normalizedText.toLowerCase().trim();
-
-  // Cuando el cliente envía el mensaje automático de solicitud,
-  // responde con el mismo contenido del comando /pagar (QR + tutorial).
-  const esSolicitudProductoChucky =
-    msg.startsWith('hola chucky') &&
-    msg.includes('quisiera solicitar el siguiente producto');
-
-  if (esSolicitudProductoChucky) {
-    const respuestaPagar = COMMAND_RESPONSES['/pagar'];
-    return typeof respuestaPagar === 'function' ? respuestaPagar() : respuestaPagar;
-  }
-
-  if (!msg.startsWith('hola lguss') || !msg.includes('quisiera solicitar')) {
+  if (!msg.startsWith('hola chucky') || !msg.includes('quisiera solicitar')) {
     return null;
   }
 
