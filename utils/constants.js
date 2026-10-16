@@ -93,7 +93,7 @@ const COMMAND_RESPONSES = {
     {
       text: [
         '*LINK OFICIAL* 👇👇👇',
-        'https://ypfk-xpress.vercel.app/',
+        'https://ypfkplus.com/',
         '',
         '🍏 *Cómo instalar en iPhone*',
         '',
