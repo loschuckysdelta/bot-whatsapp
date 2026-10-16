@@ -238,7 +238,7 @@ function SERVICE_MESSAGE(text, normalizedText) {
   const mensajeOriginal = String(text || '').trim();
 
   const msg = normalizedText.toLowerCase().trim();
-  if (!msg.startsWith('hola CHUCKY') || !msg.includes('quisiera solicitar')) {
+  if (!msg.startsWith('hola chucky.') || !msg.includes('quisiera solicitar')) {
     return null;
   }
 
