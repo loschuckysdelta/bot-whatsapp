@@ -1,6 +1,78 @@
-const { TITLE_PRODUCT, PRICE_PRODUCT, FILE_APK } = require('./data');
-const { MSG_HELP_1, MSG_HELP_2, MSG_HELP_3 } = require('./data');
+
+const {
+  TITLE_PRODUCT,
+  PRICE_PRODUCT,
+  FILE_APK,
+  MSG_HELP_1,
+  MSG_HELP_2,
+  MSG_HELP_3,
+} = require('./data');
+
 const YEAR = new Date().getFullYear();
+
+// =======================================
+// NORMALIZAR TEXTOS
+// =======================================
+
+function normalizeText(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[1-9]️⃣/g, match => match[0])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// =======================================
+// INFORMACIÓN DE YAPE
+// =======================================
+
+function YAPE_MESSAGE() {
+  return [
+    `🚀 *${TITLE_PRODUCT} - ${YEAR}*`,
+    '',
+    'Activa tu licencia de forma segura aquí.',
+    `💰 *Precio:* S/ ${PRICE_PRODUCT}`,
+    '',
+    '✅ *Pago único*',
+    '✅ *Acceso permanente*',
+    '✅ *Actualizaciones automáticas*',
+    '',
+    'Si deseas adquirirlo, escribe: `/pagar`',
+  ].join('\n');
+}
+
+// =======================================
+// INSTRUCCIONES DE PAGO
+// =======================================
+
+function QR_MESSAGE(precio = PRICE_PRODUCT) {
+  const monto = Number(precio).toFixed(2);
+
+  return [
+    '✏️ *Instrucciones de pago con QR*',
+    '',
+    '1️⃣ Toma captura o guarda el QR.',
+    '2️⃣ Busca la opción *Escanear QR*.',
+    '3️⃣ Selecciona *Subir imagen*.',
+    `4️⃣ Realiza el pago de *S/ ${monto}*.`,
+    '5️⃣ Envía el comprobante por este chat.',
+    '',
+    '⏳ Una vez verificado el pago, activaré la licencia con tu correo.',
+  ].join('\n');
+}
+
+function getPaymentYapeMessage() {
+  return [
+    '💳 Métodos de pago: *Yape/Plin*',
+    '👤 Titular: *JUAN ALEX*',
+  ].join('\n');
+}
+
+// =======================================
+// TUTORIALES
+// =======================================
 
 const COMMAND_TUTORIALS = {
   '/escanear': {
@@ -24,6 +96,7 @@ const COMMAND_TUTORIALS = {
       'La app se encargará de extraer la información.',
     ].join('\n'),
   },
+
   '/autocompletar': {
     video: 'videos/autocompletar.mp4',
     text: [
@@ -31,32 +104,46 @@ const COMMAND_TUTORIALS = {
       '',
       '1️⃣ Ve a la sección *Mis contactos*',
       '2️⃣ Guarda el nombre y número',
-      '3️⃣ Listo! Ya puedes yapear',
+      '3️⃣ ¡Listo! Ya puedes yapear',
     ].join('\n'),
   },
 };
 
+// =======================================
+// COMANDOS PRINCIPALES
+// =======================================
+
 const COMMAND_RESPONSES = {
   'buenos dias': {
-    text: 'Hola, en que puedo ayudarte?',
+    text: 'Hola, ¿en qué puedo ayudarte?',
   },
-  [MSG_HELP_1]: {
-    text: 'Hola, en que puedo ayudarte?',
+
+  [normalizeText(MSG_HELP_1)]: {
+    text: 'Hola, ¿en qué puedo ayudarte?',
   },
-  [MSG_HELP_2]: {
-    text: 'Hola, en que puedo ayudarte?',
+
+  [normalizeText(MSG_HELP_2)]: {
+    text: 'Hola, ¿en qué puedo ayudarte?',
   },
-  [MSG_HELP_3]: {
-    text: 'Hola, eres Android o Iphone?',
+
+  [normalizeText(MSG_HELP_3)]: {
+    text: 'Hola, ¿eres Android o iPhone?',
   },
+
   'hola informacion sobre el yape.': {
     image: 'yape.png',
     text: YAPE_MESSAGE(),
   },
+
   '/info': {
     image: 'yape.png',
     text: YAPE_MESSAGE(),
   },
+
+  // =====================================
+  // COMANDO /PAGAR
+  // =====================================
+
   '/pagar': () => [
     {
       image: 'qr.png',
@@ -67,18 +154,19 @@ const COMMAND_RESPONSES = {
       text: QR_MESSAGE(),
     },
   ],
+
   '/qr': {
     image: 'qr.png',
   },
+
   '/apk': [
     {
       text: [
         `📲 *DESCARGA DE APK - ANDROID ${YEAR}*`,
         '',
         '⚠️ *Si sale la advertencia Google Play Protect:*',
-        '1️⃣ *"MÁS DETALLES ▼"*.',
-        '2️⃣ *"INSTALAR DE TODAS FORMAS"*.',
-        '',
+        '1️⃣ Revisa los detalles y el origen de la aplicación.',
+        '2️⃣ Instala solamente si confías en el archivo.',
       ].join('\n'),
     },
     {
@@ -86,9 +174,10 @@ const COMMAND_RESPONSES = {
       text: null,
     },
     {
-      text: 'Antes de instalar, si tienes otras versiones borralas e instale el nuevo.',
+      text: 'Antes de instalar, si tienes otras versiones, bórralas e instala la nueva.',
     },
   ],
+
   '/iphone': () => [
     {
       text: [
@@ -98,9 +187,9 @@ const COMMAND_RESPONSES = {
         '🍏 *Cómo instalar en iPhone*',
         '',
         '1️⃣ Abre el link desde *Safari*',
-        '2️⃣ Busca el ícono de *Compartir* 📤 (un cuadrado con una flecha hacia arriba).',
-        '3️⃣ Desliza y selecciona *"Agregar a inicio"*.',
-        '4️⃣ Toca *"Agregar"* (arriba a la derecha).',
+        '2️⃣ Busca el ícono de *Compartir* 📤.',
+        '3️⃣ Desliza y selecciona *Agregar a inicio*.',
+        '4️⃣ Toca *Agregar*.',
         '',
         '✅ Listo, ya tienes el ícono en tu celular.',
         '',
@@ -111,6 +200,7 @@ const COMMAND_RESPONSES = {
       gif: 'videos/iphone.mp4',
     },
   ],
+
   '/activacion': {
     text: [
       '🔐 *Activación de licencia*',
@@ -132,6 +222,7 @@ const COMMAND_RESPONSES = {
       '• Debes esperar a que el distribuidor responda y valide tu pago.',
     ].join('\n'),
   },
+
   '/soporte': {
     text: [
       '⚙️ *Soporte y mejoras de la aplicación*',
@@ -143,9 +234,10 @@ const COMMAND_RESPONSES = {
       '• Señala con un *lápiz* la parte donde está el problema.',
       '• El modelo de tu teléfono (opcional).',
       '',
-      'Con esa información podré revisarlo para corregir o mejorar la aplicación.',
+      'Con esa información podré revisarlo para correg o mejorar la aplicación.',
     ].join('\n'),
   },
+
   '/estafas': {
     text: [
       '❗ *Aviso importante*',
@@ -160,58 +252,81 @@ const COMMAND_RESPONSES = {
       '• La aplicación es pública y puede descargarse gratis desde mi perfil.',
     ].join('\n'),
   },
+
   ...COMMAND_TUTORIALS,
 };
 
-function YAPE_MESSAGE() {
-  return [
-    `🚀 *${TITLE_PRODUCT} - ${YEAR}*`,
-    '',
-    'Activa tu licencia de forma segura aquí.',
-    `💰 *Precio:* S/ ${PRICE_PRODUCT}`,
-    '',
-    '✅ *Pago único*',
-    '✅ *Acceso permanente*',
-    '✅ *Actualizaciones automáticas*',
-    '',
-    'Si deseas adquirirlo, escribe: `/pagar`',
-  ].join('\n');
+// =======================================
+// DETECTOR HOLA CHUCKY
+// =======================================
+
+function SERVICE_MESSAGE(text, normalizedText) {
+  const msg = normalizeText(normalizedText || text)
+    .replace(/[.,!?¿¡:;]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Detecta:
+  // Hola Chucky, quisiera solicitar
+  // Hola Chucky. Quisiera solicitar
+  // HOLA CHUCKY QUISIERA SOLICITAR
+  // Hola Chucky, quisiera solicitar servicio...
+
+  const esSolicitud =
+    /\bhola\s+chucky\b/.test(msg) &&
+    /\bquisiera\s+solicitar\b/.test(msg);
+
+  if (!esSolicitud) {
+    return null;
+  }
+
+  console.log(
+    '✅ [SERVICE] Solicitud detectada: enviando /pagar'
+  );
+
+  // EXACTAMENTE LA MISMA RESPUESTA
+  return getCommandResponse('/pagar');
 }
 
-function QR_MESSAGE(precio = PRICE_PRODUCT) {
-  const monto = Number(precio).toFixed(2);
-
-  return [
-    '✏️ *Intrucciones de pago con QR*',
-    '',
-    '1️⃣ Toma captura o guarda el QR.',
-    '2️⃣ Busca la opción *Escanear QR*.',
-    '3️⃣ Selecciona *Subir imagen*.',
-    `4️⃣ Realiza el pago de *S/ ${monto}*.`,
-    '5️⃣ Envía el comprobante por este chat.',
-    '',
-    '⏳ Una vez verificado el pago, activaré la licencia con tu correo.',
-  ].join('\n');
-}
+// =======================================
+// OBTENER RESPUESTA DE COMANDOS
+// =======================================
 
 function getCommandResponse(normalizedText) {
-  const texto = String(normalizedText || '').trim();
-  const response = COMMAND_RESPONSES[texto] ?? null;
+  const texto = normalizeText(normalizedText);
 
+  // Primero reconocer comandos normales
+  let response = COMMAND_RESPONSES[texto] ?? null;
+
+  // Si no es un comando, detectar solicitud
+  if (response === null) {
+    return SERVICE_MESSAGE(texto, texto);
+  }
+
+  // Ejecutar comandos dinámicos como /pagar
   if (typeof response === 'function') {
-    return response();
+    response = response();
   }
 
   return response;
 }
 
+// =======================================
+// INFORMACIÓN DE PAGO
+// =======================================
+
 function getPaymentInfoMessage(nombre, monto) {
-  return ['💳 *Información de pago*', '', `👤 Usuario: *${nombre}*`, `💰 Monto a pagar: *S/${monto}*`].join('\n');
+  return [
+    '💳 *Información de pago*',
+    '',
+    `👤 Usuario: *${nombre}*`,
+    `💰 Monto a pagar: *S/${monto}*`,
+  ].join('\n');
 }
 
-function getPaymentYapeMessage() {
-  return ['💳 Métodos de pago: *Yape/Plin*', `👤 Titular: *JUAN ALEX*`].join('\n');
-}
+// =======================================
+// CÓDIGO DE REGISTRO
+// =======================================
 
 function getRegisterCodeMessage(code) {
   return [
@@ -221,6 +336,10 @@ function getRegisterCodeMessage(code) {
     `*${code}*`,
   ].join('\n');
 }
+
+// =======================================
+// MENSAJE TOKEN
+// =======================================
 
 function getTokenMessage(days) {
   return `🎉 *AUTOCOMPLETADO POR ${days} DÍA${days > 1 ? 'S' : ''}*
@@ -234,83 +353,9 @@ Para empezar a usarlo:
 🚀 *Este es tu token:* 👇👇👇`;
 }
 
-function SERVICE_MESSAGE(text, normalizedText) {
-  const mensajeOriginal = String(text || '').trim();
-
-  const msg = normalizedText.toLowerCase().trim();
-  if (!msg.startsWith('hola chucky.') || !msg.includes('quisiera solicitar')) {
-    return null;
-  }
-
-  const lineas = mensajeOriginal
-    .split('\n')
-    .map((linea) => linea.trim())
-    .filter(Boolean);
-
-  const servicioSolicitado = lineas.find((linea) => /\(S\/\s*\d+(\.\d{1,2})?\)/i.test(linea));
-
-  if (!servicioSolicitado) {
-    return null;
-  }
-
-  let categoriaEspecial = null;
-
-  if (
-    normalizedText.includes('tiktok') ||
-    normalizedText.includes('instagram') ||
-    normalizedText.includes('facebook') ||
-    normalizedText.includes('whatsapp') ||
-    normalizedText.includes('telegram')
-  ) {
-    categoriaEspecial = 'red';
-  }
-
-  if (normalizedText.includes('doxeo')) {
-    categoriaEspecial = 'doxing';
-  }
-
-  const mensaje = [
-    '💳 *Servicio solicitado*',
-    '',
-    `${servicioSolicitado}`,
-    '',
-    'Realiza el pago por medio de este QR.',
-    'Luego envíame el comprobante para comenzar con tu pedido.',
-  ];
-
-  if (categoriaEspecial === 'red') {
-    mensaje.push(
-      '',
-      '⚠️ *Importante*',
-      '• Tiempo de entrega: *5 a 30 minutos*.',
-      '• Debes enviarme el link del perfil o publicación.',
-      '• El perfil debe estar *público*.',
-    );
-  }
-
-  if (categoriaEspecial === 'doxing') {
-    mensaje.push(
-      '',
-      '⚠️ *Importante*',
-      '• Puedes buscar por *DNI* o *nombres completos*.',
-      '• También puedes buscar por *número de teléfono*.',
-    );
-  }
-
-  return {
-    image: 'qr.png',
-    text: mensaje.join('\n'),
-  };
-}
-
-function normalizeText(text) {
-  return String(text || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[1-9]️⃣/g, (match) => match[0])
-    .trim();
-}
+// =======================================
+// EXPORTAR FUNCIONES
+// =======================================
 
 module.exports = {
   COMMAND_RESPONSES,
